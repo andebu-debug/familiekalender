@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Familiekalenderen</title>
+<meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Familien">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: rolig, vennlig og ryddig – en moderne familieapp
+   IDEA: kjøleskapstavla – hver person sin egen plan, men alle ser alt
+   PICTURE: «I dag»-planen med store tider øverst på din egen side
+   COLOUR and TYPE: hvitt, nesten svart tekst, én blå aksent, hver person sin farge; Geist
+   LAYOUT: toppfelt, faner, innhold; bunnmeny på mobil */
+:root{color-scheme:light dark;
+--bg:light-dark(#ffffff,#0d0e11);--soft:light-dark(#f4f5f7,#16181c);--card:light-dark(#ffffff,#131519);
+--line:light-dark(#e7e9ee,#25282e);--ink:light-dark(#0d0e11,#f3f4f6);--mute:light-dark(#6b7280,#9aa1ac);
+--acc:#2f5bff;--accs:light-dark(#eef2ff,#1a2140);--ok:#10a36f;--bad:#e5484d;--r:18px}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--soft);color:var(--ink);font:16px/1.5 Geist,system-ui,-apple-system,sans-serif;overflow-x:clip;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:10px}
+h1,h2{margin:0;font-weight:650;letter-spacing:-.02em}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.08;text-wrap:balance}
+h2{font-size:15px;color:var(--mute);font-weight:550;margin-bottom:12px}
+.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+.topin{max-width:1180px;margin:auto;display:flex;align-items:center;gap:16px;padding:calc(10px + env(safe-area-inset-top)) max(4vw,16px) 10px;min-height:64px}
+.brand{font-weight:700;font-size:18px;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.logo{width:30px;height:30px;border-radius:9px;background:var(--ink);display:grid;place-items:center}
+.logo i{width:12px;height:12px;border-radius:4px;background:var(--bg);display:block;box-shadow:inset 0 3px 0 var(--acc)}
+.tabs{display:flex;gap:4px;margin-left:auto;background:var(--soft);padding:4px;border-radius:14px}
+.tabs button{padding:8px 16px;border-radius:10px;font-weight:550;font-size:15px;color:var(--mute);min-height:40px}
+.tabs button.on{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.mechip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:99px;border:1px solid var(--line);font-weight:550;min-height:40px;white-space:nowrap}
+.lock{font-size:12px;color:var(--acc);font-weight:600}
+main{max-width:1180px;margin:auto;padding:28px max(4vw,16px) 120px}
+.av{--c:#94a3b8;width:32px;height:32px;border-radius:50%;background:var(--c);color:#fff;display:inline-grid;place-items:center;font-weight:650;font-size:14px;flex:none}
+.av.lg{width:56px;height:56px;font-size:22px}
+.hero{margin-bottom:24px;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.hi{margin:0 0 4px;color:var(--mute);font-weight:500}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.cols{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+.cols>.card{margin:0}
+.cols+*{margin-top:16px}
+.ev{--c:#94a3b8;display:grid;grid-template-columns:76px minmax(0,1fr);gap:14px;width:100%;text-align:left;padding:12px 12px 12px 0;border-radius:12px;align-items:start}
+.ev+.ev{border-top:1px solid var(--line);border-radius:0}
+.ev:hover{background:var(--soft)}
+.ev .t{font-size:20px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:12px;border-left:3px solid var(--c);line-height:1.2}
+.ev .t small{display:block;font-size:13px;color:var(--mute);font-weight:500}
+.ev .t.all{font-size:13px;color:var(--mute);font-weight:550;padding-top:4px}
+.ev .ti{font-weight:600;display:block;line-height:1.3}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
+.chip{--c:#94a3b8;display:inline-flex;align-items:center;gap:5px;font-size:13px;padding:2px 9px 2px 6px;border-radius:99px;background:color-mix(in srgb,var(--c) 13%,transparent);font-weight:550;white-space:nowrap}
+.chip::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c)}
+.by,.rep{font-size:13px;color:var(--mute);white-space:nowrap}
+.by b{color:var(--ink);font-weight:600}
+.ev.pick .ti::before{content:"Henting · ";color:var(--acc);font-weight:650}
+.ev.c{grid-template-columns:1fr;gap:2px;padding:8px 10px;border:0;border-radius:10px;background:color-mix(in srgb,var(--c) 10%,transparent);margin-bottom:6px}
+.ev.c .t{font-size:12px;border:0;padding:0;color:var(--mute)}
+.ev.c .ti{font-size:14px}
+.ev.c .meta{display:none}
+.empty{color:var(--mute);margin:4px 0;font-size:15px}
+.fam{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.fm{background:var(--soft);border-radius:14px;padding:12px}
+.fmh{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.fmh span{margin-left:auto;font-size:13px;color:var(--mute)}
+.banner{display:flex;align-items:center;gap:8px;width:100%;background:var(--accs);color:var(--acc);padding:14px 18px;border-radius:14px;font-weight:550;margin-bottom:16px;text-align:left}
+.banner span{margin-left:auto}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 18px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-weight:600;font-size:15px;white-space:nowrap}
+.btn.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.acc{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn.danger{color:var(--bad)}
+.btn.sm{min-height:38px;padding:0 14px;font-size:14px;border-radius:10px}
+.btn:disabled{opacity:.45;cursor:default}
+.pts{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--ink);color:var(--bg);border-radius:var(--r);padding:22px 24px;margin-bottom:16px}
+.pts span{opacity:.7;font-size:14px;display:block}
+.pts strong{font-size:clamp(40px,8vw,56px);line-height:1;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.pts .btn{margin-left:auto;background:transparent;color:inherit;border-color:color-mix(in srgb,var(--bg) 30%,transparent)}
+.task{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+.task:first-child{border:0}
+.task>div{flex:1}
+.task b{display:block;font-weight:600}
+.task span{font-size:13px;color:var(--mute)}
+.task.ok b{text-decoration:line-through;color:var(--mute)}
+.tag{font-size:13px;padding:6px 10px;border-radius:99px;background:var(--soft);color:var(--mute);font-weight:550;white-space:nowrap}
+.tag.ok{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
+.rw{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.rwi{border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.rwi b{font-weight:600;line-height:1.3}
+.rwi>span{font-size:14px;color:var(--mute)}
+.bar{height:6px;border-radius:9px;background:var(--soft);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--acc);border-radius:9px}
+.rwi .btn{margin-top:auto}
+.hist{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.hist:first-child{border:0}
+.hist span{color:var(--mute);font-size:13px;display:block}
+.hist b{font-variant-numeric:tabular-nums;white-space:nowrap}
+.plus{color:var(--ok)}.minus{color:var(--bad)}
+.ap{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.ap:first-child{border:0}
+.ap>div{flex:1 1 200px}
+.ap span{display:block;font-size:13px;color:var(--mute)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.kids{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+.kc{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0}
+.kc strong{font-size:40px;line-height:1;letter-spacing:-.03em;margin-top:8px}
+.kc span{color:var(--mute);font-size:14px;margin-bottom:8px}
+.tb{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{padding:0 14px;min-height:36px;border-radius:9px;font-weight:550;font-size:14px;color:var(--mute)}
+.seg button.on{background:var(--ink);color:var(--bg)}
+.nav{display:flex;gap:4px}
+.nav button{min-width:40px;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font-weight:600;padding:0 12px}
+.tb .btn{margin-left:auto}
+.ct{font-size:clamp(22px,4vw,30px);margin-bottom:12px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.chips button{--c:var(--ink);display:flex;align-items:center;gap:6px;padding:0 12px 0 8px;min-height:36px;border-radius:99px;border:1px solid var(--line);background:var(--bg);font-size:14px;font-weight:550}
+.chips button::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c)}
+.chips button.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,var(--bg))}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.wd{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:8px;min-height:220px}
+.wd.today{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.wdh{display:flex;align-items:baseline;gap:6px;width:100%;padding:4px 4px 10px}
+.wdh span{font-size:13px;color:var(--mute);text-transform:capitalize}
+.wdh b{font-size:20px;font-weight:650}
+.today .wdh b{color:var(--acc)}
+.none{color:var(--line);margin:4px}
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.mh{background:var(--soft);font-size:12px;color:var(--mute);padding:8px;text-align:center;font-weight:550}
+.mc{background:var(--card);min-height:104px;padding:6px;text-align:left;display:flex;flex-direction:column;gap:3px;align-items:stretch}
+.mc.out{background:var(--soft)}
+.mc.out .n{opacity:.4}
+.mc .n{font-size:13px;font-weight:600;width:26px;height:26px;display:grid;place-items:center;border-radius:50%}
+.mc.today .n{background:var(--acc);color:#fff}
+.mc i{--c:#94a3b8;font-style:normal;font-size:12px;line-height:1.25;padding:2px 6px;border-radius:6px;background:color-mix(in srgb,var(--c) 14%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:2px solid var(--c)}
+.mc em{font-style:normal;font-size:12px;color:var(--mute);padding-left:4px}
+.fab{position:fixed;right:max(4vw,16px);bottom:28px;z-index:15;box-shadow:0 8px 24px rgba(47,91,255,.35)}
+#modal{position:fixed;inset:0;z-index:50;background:rgba(10,12,16,.45);display:grid;place-items:center;padding:16px;backdrop-filter:blur(3px)}
+#modal[hidden]{display:none}
+.sheet{background:var(--bg);border-radius:22px;width:min(560px,100%);max-height:calc(100dvh - 32px);overflow:auto;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.sheet h2{font-size:22px;color:var(--ink);font-weight:650;margin-bottom:16px}
+form{display:grid;gap:14px}
+label{display:grid;gap:6px;font-size:14px;font-weight:550;color:var(--mute)}
+input,select,textarea{font-size:16px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg);min-height:44px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:0;border-color:transparent}
+fieldset{border:0;padding:0;margin:0}
+legend{font-size:14px;font-weight:550;color:var(--mute);margin-bottom:6px}
+.g3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{--c:var(--ink);display:block;font-weight:550;color:var(--ink)}
+.pill input{position:absolute;opacity:0;width:1px;height:1px;min-height:0}
+.pill span{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;border-radius:99px;border:1px solid var(--line);font-size:14px}
+.pill input:checked+span{background:color-mix(in srgb,var(--c) 14%,var(--bg));border-color:var(--c)}
+.pill input:focus-visible+span{outline:2px solid var(--acc)}
+.acts{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.acts span{flex:1}
+.who{display:grid;gap:8px}
+.who button{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:14px;font-weight:600;font-size:17px;text-align:left}
+.who button:hover{background:var(--soft)}
+.who small{margin-left:auto;color:var(--mute);font-weight:500;font-size:13px}
+.srow{display:grid;grid-template-columns:auto minmax(0,1fr) 120px auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.srow:first-of-type{border:0}
+.srow.t{grid-template-columns:minmax(0,1fr) 90px auto;}
+.srow.t .days{grid-column:1/-1}
+.srow.r{grid-template-columns:minmax(0,1fr) 110px auto}
+.days{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.days button{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--mute)}
+.days button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.days small{color:var(--mute);font-size:13px;margin-left:6px}
+.sw{display:flex;gap:4px}
+.sw button{width:22px;height:22px;border-radius:50%;background:var(--c)}
+.sw button.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--c)}
+.x{width:38px;height:38px;border-radius:10px;color:var(--mute);font-size:20px}
+.x:hover{background:var(--soft);color:var(--bad)}
+.note{color:var(--mute);font-size:14px;margin:8px 0 0}
+.savebar{position:sticky;bottom:16px;display:flex;justify-content:flex-end;gap:8px;z-index:5}
+.lockbox{max-width:380px;margin:40px auto;text-align:center}
+.lockbox form{margin-top:18px}
+#toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:550;opacity:0;transition:.25s;z-index:60;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
+@media(max-width:900px){.week{grid-template-columns:minmax(0,1fr)}.wd{min-height:0}.cols{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){
+ .tabs{position:fixed;left:0;right:0;bottom:0;margin:0;border-radius:0;background:var(--bg);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom));justify-content:space-around;z-index:30}
+ .tabs button{flex:1;padding:8px 4px;font-size:14px}
+ .mechip{margin-left:auto}
+ main{padding-top:20px}
+ .fab{bottom:calc(86px + env(safe-area-inset-bottom))}
+ #toast{bottom:150px}
+ .mc{min-height:64px;padding:4px}
+ .mc i{font-size:0;padding:0;height:6px;border-radius:3px;border:0;background:var(--c)}
+ .mc em{font-size:11px;padding:0}
+ .g3{grid-template-columns:1fr 1fr}.g3 label:first-child{grid-column:1/-1}
+ .srow{grid-template-columns:auto minmax(0,1fr) auto}.srow .sw{grid-column:2/-1}.srow select{grid-column:2}
+ .ev{grid-template-columns:64px minmax(0,1fr);gap:10px}
+ .ev .t{font-size:17px;padding-left:10px}
+ .pts .btn{margin-left:0}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="topin">
+ <div class="brand"><span class="logo"><i></i></span><span>Familien</span></div>
+ <nav class="tabs" id="tabs">
+  <button data-tab="meg">Meg</button>
+  <button data-tab="kalender">Kalender</button>
+  <button data-tab="oppdrag">Oppdrag</button>
+  <button data-tab="oppsett">Oppsett</button>
+ </nav>
+ <button class="mechip" id="mechip" hidden></button>
+</div></header>
+<main id="view"><p class="empty">Laster kalenderen …</p></main>
+<div id="modal" hidden></div>
+<div id="toast" role="status"></div>
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const P=s=>new Date(s+'T12:00:00');
+const add=(s,n)=>{const d=P(s);d.setDate(d.getDate()+n);return iso(d)};
+const wd=s=>(P(s).getDay()+6)%7+1;
+const mon=s=>add(s,1-wd(s));
+let TODAY=iso(new Date());
+const fmt=(s,o)=>new Intl.DateTimeFormat('nb-NO',o).format(P(s));
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const COLORS=['#2f5bff','#ff4d6d','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ec4899','#64748b'];
+const TYPES={skole:'Skole',henting:'Henting',aktivitet:'Aktivitet',avtale:'Avtale',annet:'Annet'};
+const DN=['M','T','O','T','F','L','S'];
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}}};
+const uid=()=>Math.random().toString(36).slice(2,10);
+
+const S={setup:null,events:[],claims:[],ledger:[],tab:store.get('fam.tab')||'meg',mode:innerWidth<700?'dag':'uke',cur:TODAY,filter:'alle',loaded:false,slow:false,nodb:false,draft:null};
+let db=null;
+
+const mem=()=>S.setup?.members||[];
+const M=id=>mem().find(m=>m.id===id);
+const me=()=>M(store.get('fam.me'));
+const kids=()=>mem().filter(m=>m.role==='barn');
+const isAdmin=()=>store.get('fam.admin')==='1';
+const pin=()=>S.setup?.pin||'admin123';
+
+const occurs=(e,d)=>{if(!e.date)return false;
+ if(e.repeat==='weekly')return d>=e.date&&wd(d)===wd(e.date)&&(!e.until||d<=e.until)&&!(e.skip||[]).includes(d);
+ return e.date===d};
+const involves=(e,ids)=>ids.some(i=>(e.who||[]).includes(i)||e.by===i);
+const on=(d,ids)=>S.events.filter(e=>occurs(e,d)&&(!ids||involves(e,ids))).sort((a,b)=>(a.start||'00').localeCompare(b.start||'00'));
+const fids=()=>S.filter==='alle'?null:[S.filter];
+const colorOf=e=>(M((e.who||[])[0])||M(e.by))?.color||'#94a3b8';
+
+const av=(m,c='')=>m?`<span class="av ${c}" style="--c:${esc(m.color)}">${esc((m.name||'?').trim().charAt(0).toUpperCase())}</span>`:'';
+const chip=m=>`<span class="chip" style="--c:${esc(m.color)}">${esc(m.name)}</span>`;
+const empty=t=>`<p class="empty">${t}</p>`;
+
+function evRow(e,d,c){
+ const by=M(e.by),who=(e.who||[]).map(M).filter(Boolean);
+ return `<button class="ev ${c?'c':''} ${e.type==='henting'?'pick':''}" style="--c:${esc(colorOf(e))}" data-ev="${esc(e.id)}" data-d="${d}">
+ <span class="t ${e.start?'':'all'}">${e.start?esc(e.start):'Hele dagen'}${e.end&&!c?`<small>til ${esc(e.end)}</small>`:''}</span>
+ <span><span class="ti">${esc(e.title)}</span><span class="meta">${who.map(chip).join('')}${by?`<span class="by">${e.type==='henting'?'Henter':'Ansvarlig'}: <b>${esc(by.name)}</b></span>`:''}${e.repeat==='weekly'?'<span class="rep">· hver uke</span>':''}</span></span></button>`}
+
+/* ---------- Poeng ---------- */
+const bal=k=>S.ledger.filter(l=>l.kid===k.id).reduce((s,l)=>s+(+l.points||0),0);
+const avail=k=>bal(k)-S.claims.filter(c=>c.kid===k.id&&c.kind==='reward').reduce((s,c)=>s+(+c.cost||0),0);
+const tasksToday=()=>(S.setup?.tasks||[]).filter(t=>!t.days?.length||t.days.includes(wd(TODAY)));
+function taskState(k,t){const id=`${k.id}_${t.id}_${TODAY}`;if(S.ledger.some(l=>l.id===id))return 'ok';if(S.claims.some(c=>c.id===id))return 'wait';return ''}
+function taskList(k){const ts=tasksToday();if(!ts.length)return empty('Ingen oppdrag i dag.');
+ return ts.map(t=>{const st=taskState(k,t);return `<div class="task ${st}"><div><b>${esc(t.title)}</b><span>+${+t.points||0} poeng</span></div>${st==='ok'?'<span class="tag ok">Godkjent ✓</span>':st==='wait'?'<span class="tag">Venter på godkjenning</span>':`<button class="btn sm pri" data-done="${esc(t.id)}" data-kid="${esc(k.id)}">Ferdig</button>`}</div>`}).join('')}
+function rewards(k){const a=avail(k),rs=S.setup?.rewards||[];if(!rs.length)return empty('Ingen belønninger lagt inn ennå.');
+ return `<div class="rw">${rs.map(r=>{const ok=a>=r.cost;return `<div class="rwi"><b>${esc(r.title)}</b><span>${+r.cost} poeng</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,a/(r.cost||1)*100))}%"></i></div><button class="btn sm ${ok?'acc':''}" data-buy="${esc(r.id)}" data-kid="${esc(k.id)}" ${ok?'':'disabled'}>${ok?'Veksle inn':'Mangler '+(r.cost-a)}</button></div>`}).join('')}</div>`}
+function history(k){const l=S.ledger.filter(x=>x.kid===k.id).sort((a,b)=>(b.at||0)-(a.at||0)).slice(0,10);
+ if(!l.length)return empty('Ingen poeng ennå. Gjør et oppdrag!');
+ return l.map(x=>`<div class="hist"><div>${esc(x.title)}<span>${x.date?fmt(x.date,{weekday:'short',day:'numeric',month:'short'}):''}</span></div><b class="${x.points<0?'minus':'plus'}">${x.points>0?'+':''}${x.points}</b></div>`).join('')}
+const ptsCard=(k,btn)=>`<section class="pts"><div><span>${btn?'Poengene dine':'Kan brukes nå'}</span><strong>${avail(k)}</strong></div>${btn?'<button class="btn" data-go="oppdrag">Se belønninger →</button>':''}</section>`;
+
+/* ---------- Visninger ---------- */
+function vMeg(){
+ const m=me(),ids=[m.id],mine=on(TODAY,ids),pick=on(TODAY).filter(e=>e.type==='henting');
+ const tom=add(TODAY,1),mineTom=on(tom,ids);
+ let h=`<section class="hero">${av(m,'lg')}<div><p class="hi">Hei, ${esc(m.name)}</p><h1>${cap(fmt(TODAY,{weekday:'long',day:'numeric',month:'long'}))}</h1></div></section>`;
+ if(isAdmin()&&S.claims.length)h+=`<button class="banner" data-go="oppdrag"><b>${S.claims.length}</b> venter på godkjenning <span>→</span></button>`;
+ if(m.role==='barn')h+=ptsCard(m,1);
+ h+=`<div class="cols"><section class="card"><h2>Ditt i dag</h2>${mine.length?mine.map(e=>evRow(e,TODAY)).join(''):empty('Ingenting på deg i dag.')}</section>`;
+ h+=m.role==='barn'?`<section class="card"><h2>Dagens oppdrag</h2>${taskList(m)}</section>`:`<section class="card"><h2>Henting i dag</h2>${pick.length?pick.map(e=>evRow(e,TODAY)).join(''):empty('Ingen henting lagt inn i dag.')}</section>`;
+ h+=`</div>`;
+ if(m.role==='barn'&&pick.length)h+=`<section class="card"><h2>Henting i dag</h2>${pick.map(e=>evRow(e,TODAY)).join('')}</section>`;
+ const others=mem().filter(x=>x.id!==m.id);
+ h+=`<section class="card"><h2>Resten av familien i dag</h2><div class="fam">${others.map(x=>{const l=on(TODAY,[x.id]);return `<div class="fm"><div class="fmh">${av(x)}<b>${esc(x.name)}</b><span>${l.length?l.length+(l.length===1?' ting':' ting'):'Ingenting'}</span></div>${l.map(e=>evRow(e,TODAY,1)).join('')}</div>`}).join('')}</div></section>`;
+ h+=`<section class="card"><h2>I morgen, ${fmt(tom,{weekday:'long'})}</h2>${mineTom.length?mineTom.map(e=>evRow(e,tom)).join(''):empty('Ingenting på deg i morgen.')}</section>`;
+ return h}
+
+function weekNo(s){const d=P(s);d.setDate(d.getDate()+4-wd(s));const y=new Date(d.getFullYear(),0,1,12);return Math.floor(Math.round((d-y)/864e5)/7)+1}
+function vCal(){
+ const t=S.cur,f=fids();let title,body;
+ if(S.mode==='dag'){title=cap(fmt(t,{weekday:'long',day:'numeric',month:'long'}));const l=on(t,f);body=`<div class="card">${l.length?l.map(e=>evRow(e,t)).join(''):empty('Ingenting denne dagen.')}</div>`}
+ else if(S.mode==='uke'){const s=mon(t),days=[...Array(7)].map((_,i)=>add(s,i));
+  title=`Uke ${weekNo(s)} · ${fmt(s,{day:'numeric',month:'short'})} – ${fmt(days[6],{day:'numeric',month:'short'})}`;
+  body=`<div class="week">${days.map(d=>{const l=on(d,f);return `<div class="wd ${d===TODAY?'today':''}"><button class="wdh" data-day="${d}"><span>${fmt(d,{weekday:'short'})}</span><b>${P(d).getDate()}</b></button>${l.map(e=>evRow(e,d,1)).join('')||'<p class="none">–</p>'}</div>`}).join('')}</div>`}
+ else{const first=t.slice(0,8)+'01',start=mon(first),mth=t.slice(5,7);
+  title=cap(fmt(first,{month:'long',year:'numeric'}));
+  let cells=['man','tir','ons','tor','fre','lør','søn'].map(x=>`<div class="mh">${x}</div>`).join('');
+  for(let i=0;i<42;i++){const d=add(start,i);if(i===35&&d.slice(5,7)!==mth)break;const l=on(d,f);
+   cells+=`<button class="mc ${d.slice(5,7)!==mth?'out':''} ${d===TODAY?'today':''}" data-day="${d}"><span class="n">${P(d).getDate()}</span>${l.slice(0,3).map(e=>`<i style="--c:${esc(colorOf(e))}">${esc(e.start||'')} ${esc(e.title)}</i>`).join('')}${l.length>3?`<em>+${l.length-3}</em>`:''}</button>`}
+  body=`<div class="month">${cells}</div>`}
+ return `<div class="tb"><div class="seg">${[['dag','Dag'],['uke','Uke'],['maned','Måned']].map(([k,v])=>`<button data-mode="${k}" class="${S.mode===k?'on':''}">${v}</button>`).join('')}</div>
+ <div class="nav"><button data-nav="-1" aria-label="Forrige">‹</button><button data-nav="0">I dag</button><button data-nav="1" aria-label="Neste">›</button></div></div>
+ <h1 class="ct">${title}</h1>
+ <div class="chips"><button data-filter="alle" class="${S.filter==='alle'?'on':''}">Alle</button>${mem().map(m=>`<button data-filter="${esc(m.id)}" style="--c:${esc(m.color)}" class="${S.filter===m.id?'on':''}">${esc(m.name)}</button>`).join('')}</div>
+ ${body}${isAdmin()?'<button class="btn acc fab" data-new>+ Ny hendelse</button>':''}`}
+
+function vOpp(){
+ const m=me();
+ if(m.role==='barn')return `<section class="hero"><div><p class="hi">Oppdrag og belønninger</p><h1>Tjen poeng, ${esc(m.name)}</h1></div></section>${ptsCard(m)}
+ <section class="card"><h2>Dagens oppdrag</h2>${taskList(m)}</section>
+ <section class="card"><h2>Belønninger</h2>${rewards(m)}</section>
+ <section class="card"><h2>Siste poeng</h2>${history(m)}</section>`;
+ const pend=S.claims.slice().sort((a,b)=>(a.at||0)-(b.at||0));
+ let h=`<section class="hero"><div><p class="hi">Oppdrag og belønninger</p><h1>Barnas poeng</h1></div></section>`;
+ h+=`<section class="card"><h2>Til godkjenning</h2>${pend.length?pend.map(c=>{const k=M(c.kid);return `<div class="ap">${av(k)}<div><b>${esc(k?.name||'?')}</b> ${c.kind==='reward'?'vil veksle inn':'er ferdig med'} <b>${esc(c.title)}</b><span>${c.kind==='reward'?'−'+c.cost:'+'+c.points} poeng · ${fmt(c.date,{weekday:'short',day:'numeric',month:'short'})}</span></div>${isAdmin()?`<div class="row"><button class="btn sm" data-rej="${esc(c.id)}">Avvis</button><button class="btn sm pri" data-ok="${esc(c.id)}">Godkjenn</button></div>`:''}</div>`}).join(''):empty('Ingenting å godkjenne nå.')}</section>`;
+ h+=`<section class="kids">${kids().map(k=>`<div class="card kc">${av(k)}<b>${esc(k.name)}</b><strong>${bal(k)}</strong><span>poeng</span>${isAdmin()?`<button class="btn sm" data-bonus="${esc(k.id)}">Gi eller trekk poeng</button>`:''}</div>`).join('')||empty('Ingen barn lagt inn. Legg dem til under Oppsett.')}</section>`;
+ kids().forEach(k=>{h+=`<section class="card" style="margin-top:16px"><h2>${esc(k.name)} – siste poeng</h2>${history(k)}</section>`});
+ if(!isAdmin())h+=`<p class="note">Godkjenning krever voksen-modus. Gå til Oppsett.</p>`;
+ return h}
+
+function vLock(){return `<div class="lockbox"><h1>Voksen-modus</h1><p class="note">Skriv inn koden for å legge inn hendelser, godkjenne oppdrag og endre oppsett på denne enheten.</p>
+ <form id="lockf"><input type="password" name="p" placeholder="Kode" autocomplete="current-password" aria-label="Kode"><button class="btn pri">Lås opp</button></form></div>`}
+
+function vSet(){
+ if(!isAdmin())return vLock();
+ const d=S.draft;
+ const days=(t,i)=>`<div class="days">${DN.map((n,j)=>`<button type="button" data-tday="${i}.${j+1}" class="${(t.days||[]).includes(j+1)?'on':''}" aria-label="Dag ${j+1}">${n}</button>`).join('')}<small>${(t.days||[]).length?'':'Alle dager'}</small></div>`;
+ return `<section class="hero"><div><p class="hi">Voksen-modus er på</p><h1>Oppsett</h1></div><button class="btn" data-logout style="margin-left:auto">Lås voksen-modus</button></section>
+ <section class="card"><h2>Familien</h2>${d.members.map((m,i)=>`<div class="srow">${av(m)}<input data-k="members.${i}.name" value="${esc(m.name)}" aria-label="Navn"><select data-k="members.${i}.role" aria-label="Rolle"><option value="voksen">Voksen</option><option value="barn" ${m.role==='barn'?'selected':''}>Barn</option></select><button class="x" data-rm="members.${i}" aria-label="Fjern">×</button><div class="sw">${COLORS.map(c=>`<button type="button" style="--c:${c}" class="${m.color===c?'on':''}" data-col="${i}.${c}" aria-label="Farge"></button>`).join('')}</div></div>`).join('')}
+ <button class="btn sm" data-addrow="members" style="margin-top:10px">+ Legg til person</button></section>
+ <section class="card"><h2>Oppdrag (poeng per gang)</h2>${d.tasks.map((t,i)=>`<div class="srow t"><input data-k="tasks.${i}.title" value="${esc(t.title)}" aria-label="Oppdrag"><input type="number" inputmode="numeric" data-k="tasks.${i}.points" value="${+t.points||0}" aria-label="Poeng"><button class="x" data-rm="tasks.${i}" aria-label="Fjern">×</button>${days(t,i)}</div>`).join('')}
+ <button class="btn sm" data-addrow="tasks" style="margin-top:10px">+ Legg til oppdrag</button></section>
+ <section class="card"><h2>Belønninger (koster poeng)</h2>${d.rewards.map((r,i)=>`<div class="srow r"><input data-k="rewards.${i}.title" value="${esc(r.title)}" aria-label="Belønning"><input type="number" inputmode="numeric" data-k="rewards.${i}.cost" value="${+r.cost||0}" aria-label="Pris i poeng"><button class="x" data-rm="rewards.${i}" aria-label="Fjern">×</button></div>`).join('')}
+ <button class="btn sm" data-addrow="rewards" style="margin-top:10px">+ Legg til belønning</button></section>
+ <section class="card"><h2>Voksen-kode</h2><input data-k="pin" value="${esc(d.pin||'admin123')}" aria-label="Voksen-kode"><p class="note">Koden er en enkel lås for barna, ikke et sikkert passord.</p></section>
+ <section class="card"><h2>Denne enheten</h2><p style="margin:0 0 12px">Appen tilhører <b>${esc(me()?.name||'ingen')}</b>.</p><button class="btn sm" data-pickme>Bytt person på denne enheten</button></section>
+ <div class="savebar"><button class="btn" data-reset>Angre endringer</button><button class="btn pri" data-save>Lagre oppsett</button></div>`}
+
+function pickPrompt(){return `<div class="lockbox"><h1>Hvem sin app er dette?</h1><p class="note">Velg én gang. Da viser appen din egen plan først.</p><div class="who" style="margin-top:18px;text-align:left">${mem().map(m=>`<button data-me="${esc(m.id)}">${av(m)}${esc(m.name)}<small>${m.role==='barn'?'Barn':'Voksen'}</small></button>`).join('')}</div></div>`}
+
+/* ---------- Tegning ---------- */
+let q=0;const sched=()=>{if(!q){q=1;requestAnimationFrame(()=>{q=0;render()})}};
+function chrome(){
+ document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
+ const m=me(),c=$('#mechip');
+ if(m){c.hidden=false;c.innerHTML=`${av(m)}${esc(m.name)}${isAdmin()?' <span class="lock">voksen</span>':''}`}else c.hidden=true}
+function render(force){
+ chrome();
+ if(!force&&S.tab==='oppsett'&&S.draft&&isAdmin())return;
+ const v=$('#view');
+ if(S.nodb){v.innerHTML=`<div class="lockbox"><h1>Databasen er ikke koblet til ennå</h1><p class="note">Lim inn Supabase-adressen og nøkkelen i filen config.js, og last opp på nytt.</p></div>`;return}
+ if(!S.loaded){v.innerHTML=empty(S.slow?'Får ikke kontakt med kalenderen ennå. Sjekk nettet – den prøver igjen av seg selv.':'Laster kalenderen …');return}
+ if(!S.setup){if(S.tab!=='oppsett'||!isAdmin()){S.tab='oppsett';}
+  if(!isAdmin()){v.innerHTML=vLock();return}
+  if(!S.draft)S.draft={members:[],tasks:[],rewards:[],pin:'admin123'};v.innerHTML=vSet();return}
+ if(!me()&&!(S.tab==='oppsett'&&isAdmin())){v.innerHTML=pickPrompt();return}
+ if(S.tab==='oppsett'&&isAdmin()&&!S.draft)S.draft=JSON.parse(JSON.stringify({members:[],tasks:[],rewards:[],pin:'admin123',...S.setup}));
+ v.innerHTML=({meg:vMeg,kalender:vCal,oppdrag:vOpp,oppsett:vSet}[S.tab]||vMeg)()}
+
+/* ---------- Modal og meldinger ---------- */
+function open(html,mount){const md=$('#modal');md.innerHTML=`<div class="sheet" role="dialog" aria-modal="true">${html}</div>`;md.hidden=false;mount&&mount()}
+function close(){const md=$('#modal');md.hidden=true;md.innerHTML=''}
+let tt;function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('on'),2600)}
+function fail(e){console.error(e);toast(navigator.onLine===false?'Du er uten nett. Prøv igjen når du har dekning.':'Noe gikk galt. Prøv igjen.')}
+
+function askPin(then){open(`<h2>Voksen-kode</h2><form id="pf"><input type="password" name="p" placeholder="Kode" aria-label="Kode"><div class="acts"><span></span><button type="button" class="btn" data-close>Avbryt</button><button class="btn pri">OK</button></div></form>`,()=>{
+ $('#pf').onsubmit=e=>{e.preventDefault();if(new FormData(e.target).get('p')===pin()){store.set('fam.admin','1');close();then&&then();render(1)}else toast('Feil kode')}})}
+function pickMe(){open(`<h2>Hvem sin app er dette?</h2>${pickPrompt().replace(/<h1>.*?<\/h1><p class="note">.*?<\/p>/,'')}`)}
+
+function editor(e,d){
+ const isNew=!e;e=e||{date:d||S.cur,start:'',end:'',type:'aktivitet',who:me()?[me().id]:[],by:'',repeat:'none',until:'',note:'',title:''};
+ open(`<h2>${isNew?'Ny hendelse':'Endre hendelse'}</h2><form id="ef">
+ <label>Hva skjer?<input name="title" required value="${esc(e.title)}" placeholder="F.eks. Fotballtrening"></label>
+ <fieldset><legend>Type</legend><div class="pills">${Object.entries(TYPES).map(([k,v])=>`<label class="pill"><input type="radio" name="type" value="${k}" ${e.type===k?'checked':''}><span>${v}</span></label>`).join('')}</div></fieldset>
+ <div class="g3"><label>Dato<input type="date" name="date" value="${esc(e.date)}" required></label><label>Fra<input type="time" name="start" value="${esc(e.start)}"></label><label>Til<input type="time" name="end" value="${esc(e.end)}"></label></div>
+ <fieldset><legend>Gjelder</legend><div class="pills">${mem().map(m=>`<label class="pill" style="--c:${esc(m.color)}"><input type="checkbox" name="who" value="${esc(m.id)}" ${(e.who||[]).includes(m.id)?'checked':''}><span>${esc(m.name)}</span></label>`).join('')}</div></fieldset>
+ <label>Hvem henter / er ansvarlig?<select name="by"><option value="">Ingen</option>${mem().filter(m=>m.role!=='barn').concat(kids()).map(m=>`<option value="${esc(m.id)}" ${e.by===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
+ <div class="g2"><label>Gjentas<select name="repeat"><option value="none">Nei</option><option value="weekly" ${e.repeat==='weekly'?'selected':''}>Hver uke</option></select></label><label>Til og med (valgfritt)<input type="date" name="until" value="${esc(e.until||'')}"></label></div>
+ <label>Notat<textarea name="note" rows="2" placeholder="F.eks. ta med gymtøy">${esc(e.note||'')}</textarea></label>
+ ${!isNew&&e.repeat==='weekly'?'<p class="note">Endringer gjelder hele serien.</p>':''}
+ <div class="acts">${isNew?'':'<button type="button" class="btn danger" id="del">Slett</button>'}<span></span><button type="button" class="btn" data-close>Avbryt</button><button class="btn pri">Lagre</button></div></form>`,()=>{
+  $('#ef').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),rep=f.get('repeat');
+   const data={title:f.get('title').trim(),type:f.get('type')||'annet',date:f.get('date'),start:f.get('start')||'',end:f.get('end')||'',who:f.getAll('who'),by:f.get('by')||'',repeat:rep,until:rep==='weekly'?(f.get('until')||''):'',note:f.get('note').trim(),skip:e.skip||[]};
+   const b=ev.target.querySelector('.btn.pri');b.disabled=true;
+   try{if(isNew)await db.collection('cal').add(data);else await db.doc('cal/'+e.id).set(data);close();toast('Lagret')}catch(err){b.disabled=false;fail(err)}};
+  if(!isNew)$('#del').onclick=()=>delAsk(e,d)})}
+function delAsk(e,d){
+ const weekly=e.repeat==='weekly';
+ open(`<h2>Slette «${esc(e.title)}»?</h2>${weekly?`<p class="note" style="margin-bottom:16px">Dette skjer hver uke.</p>`:''}<div class="acts"><button class="btn" data-close>Avbryt</button><span></span>${weekly?`<button class="btn" id="d1">Bare ${esc(fmt(d,{day:'numeric',month:'short'}))}</button><button class="btn danger" id="dall">Hele serien</button>`:'<button class="btn danger" id="dall">Slett</button>'}</div>`,()=>{
+  $('#dall').onclick=async()=>{try{await db.doc('cal/'+e.id).delete();close();toast('Slettet')}catch(err){fail(err)}};
+  if(weekly)$('#d1').onclick=async()=>{try{await db.doc('cal/'+e.id).update({skip:[...(e.skip||[]),d]});close();toast('Fjernet denne dagen')}catch(err){fail(err)}}})}
+function detail(e,d){const by=M(e.by),who=(e.who||[]).map(M).filter(Boolean);
+ open(`<h2>${esc(e.title)}</h2><p style="margin:0 0 8px"><b>${cap(fmt(d,{weekday:'long',day:'numeric',month:'long'}))}</b>${e.start?' · '+esc(e.start):''}${e.end?'–'+esc(e.end):''}</p>
+ <div class="meta" style="margin-bottom:12px">${who.map(chip).join('')}<span class="by">${TYPES[e.type]||''}${e.repeat==='weekly'?' · hver uke':''}</span></div>
+ ${by?`<p style="margin:0 0 8px">${e.type==='henting'?'Henter':'Ansvarlig'}: <b>${esc(by.name)}</b></p>`:''}${e.note?`<p class="note">${esc(e.note)}</p>`:''}
+ <div class="acts"><span></span><button class="btn pri" data-close>Lukk</button></div>`)}
+function bonus(kid){const k=M(kid);
+ open(`<h2>Poeng til ${esc(k.name)}</h2><form id="bf"><label>Poeng (bruk minus for å trekke)<input type="number" inputmode="numeric" name="p" required value="10"></label><label>Hvorfor?<input name="t" required placeholder="F.eks. Hjalp til med middagen"></label><div class="acts"><span></span><button type="button" class="btn" data-close>Avbryt</button><button class="btn pri">Lagre</button></div></form>`,()=>{
+  $('#bf').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target);
+   try{await db.collection('ledger').add({kid,points:Math.round(+f.get('p')||0),title:f.get('t').trim(),date:TODAY,at:Date.now(),kind:'bonus'});close();toast('Lagret')}catch(err){fail(err)}}})}
+function buy(kid,rid){const r=(S.setup.rewards||[]).find(x=>x.id===rid),k=M(kid);if(!r)return;
+ open(`<h2>Veksle inn?</h2><p style="margin:0 0 16px"><b>${esc(r.title)}</b> koster ${+r.cost} poeng. En voksen må godkjenne.</p><div class="acts"><span></span><button class="btn" data-close>Avbryt</button><button class="btn acc" id="by">Ja, veksle inn</button></div>`,()=>{
+  $('#by').onclick=async()=>{if(avail(k)<r.cost)return toast('Ikke nok poeng');
+   try{await db.doc(`claims/${kid}_r_${uid()}`).set({kid,kind:'reward',rewardId:r.id,title:r.title,cost:+r.cost,date:TODAY,at:Date.now()});close();toast('Sendt til godkjenning')}catch(err){fail(err)}}})}
+
+/* ---------- Handlinger ---------- */
+async function claim(kid,tid){const t=(S.setup.tasks||[]).find(x=>x.id===tid);if(!t)return;
+ try{await db.doc(`claims/${kid}_${tid}_${TODAY}`).set({kid,kind:'task',taskId:tid,title:t.title,points:+t.points||0,date:TODAY,at:Date.now()});toast('Bra jobba! Venter på godkjenning')}catch(e){fail(e)}}
+async function approve(id){const c=S.claims.find(x=>x.id===id);if(!c)return;
+ try{await db.doc('ledger/'+id).set({kid:c.kid,points:c.kind==='reward'?-(+c.cost||0):(+c.points||0),title:c.title,date:c.date,at:Date.now(),kind:c.kind});await db.doc('claims/'+id).delete();toast('Godkjent')}catch(e){fail(e)}}
+async function reject(id){try{await db.doc('claims/'+id).delete();toast('Avvist')}catch(e){fail(e)}}
+function setPath(o,p,v){const k=p.split('.');let x=o;for(let i=0;i<k.length-1;i++)x=x[k[i]];x[k.at(-1)]=v}
+
+document.addEventListener('click',ev=>{
+ const b=ev.target.closest('button,[data-close]');
+ if(ev.target.id==='modal')return close();
+ if(!b)return;const D=b.dataset;
+ if('close' in D)return close();
+ if(D.tab||D.go){S.tab=D.tab||D.go;store.set('fam.tab',S.tab);close();render(1);scrollTo(0,0);return}
+ if(D.mode){S.mode=D.mode;return render()}
+ if(D.nav){const n=+D.nav;if(!n)S.cur=TODAY;else if(S.mode==='dag')S.cur=add(S.cur,n);else if(S.mode==='uke')S.cur=add(S.cur,7*n);else{const d=P(S.cur.slice(0,8)+'01');d.setMonth(d.getMonth()+n);S.cur=iso(d)}return render()}
+ if(D.filter){S.filter=D.filter;return render()}
+ if(D.day){S.cur=D.day;S.mode='dag';return render()}
+ if(D.ev){const e=S.events.find(x=>x.id===D.ev);if(e)(isAdmin()?editor:detail)(e,D.d);return}
+ if('new' in D)return editor(null,S.cur);
+ if(D.done)return claim(D.kid,D.done);
+ if(D.buy)return buy(D.kid,D.buy);
+ if(D.ok)return approve(D.ok);
+ if(D.rej)return reject(D.rej);
+ if(D.bonus)return bonus(D.bonus);
+ if(D.me){if(me()&&!isAdmin())return toast('Bare en voksen kan bytte person');store.set('fam.me',D.me);close();S.tab='meg';store.set('fam.tab','meg');return render(1)}
+ if(b.id==='mechip'||'pickme' in D){return isAdmin()?pickMe():askPin(pickMe)}
+ if('logout' in D){store.set('fam.admin',null);S.draft=null;toast('Voksen-modus er låst');return render(1)}
+ const d=S.draft;if(!d)return;
+ if(D.addrow){const n=uid();d[D.addrow].push(D.addrow==='members'?{id:'m'+n,name:'',role:'barn',color:COLORS[d.members.length%COLORS.length]}:D.addrow==='tasks'?{id:'t'+n,title:'',points:10,days:[]}:{id:'r'+n,title:'',cost:100});return render(1)}
+ if(D.rm){const [k,i]=D.rm.split('.');d[k].splice(+i,1);return render(1)}
+ if(D.tday){const [i,j]=D.tday.split('.').map(Number),t=d.tasks[i];t.days=t.days||[];t.days=t.days.includes(j)?t.days.filter(x=>x!==j):[...t.days,j].sort();return render(1)}
+ if(D.col){const [i,c]=D.col.split('.');d.members[+i].color=c;return render(1)}
+ if('reset' in D){S.draft=null;return render(1)}
+ if('save' in D){const out={...d,members:d.members.filter(m=>m.name.trim()).map(m=>({...m,name:m.name.trim()})),tasks:d.tasks.filter(t=>t.title.trim()).map(t=>({...t,points:Math.round(+t.points||0)})),rewards:d.rewards.filter(r=>r.title.trim()).map(r=>({...r,cost:Math.round(+r.cost||0)})),pin:(d.pin||'').trim()||'admin123'};
+  b.disabled=true;db.doc('family/setup').set(out).then(()=>{S.draft=null;toast('Oppsett lagret');render(1)}).catch(e=>{b.disabled=false;fail(e)})}
+});
+document.addEventListener('input',ev=>{const k=ev.target.dataset?.k;if(k&&S.draft)setPath(S.draft,k,ev.target.value)});
+document.addEventListener('change',ev=>{const k=ev.target.dataset?.k;if(k&&S.draft){setPath(S.draft,k,ev.target.value);if(ev.target.tagName==='SELECT')render(1)}});
+document.addEventListener('submit',ev=>{if(ev.target.id==='lockf'){ev.preventDefault();if(new FormData(ev.target).get('p')===pin()){store.set('fam.admin','1');toast('Voksen-modus er på');render(1)}else toast('Feil kode')}});
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!$('#modal').hidden)close()});
+
+/* ---------- Data ---------- */
+/* Alt lagres i én Supabase-tabell «familie_docs» (path, coll, data).
+   Endringer kommer live til alle mobiler via Supabase Realtime. */
+const cache=new Map();
+function apply(){
+ const s=cache.get('family/setup');S.setup=s?JSON.parse(JSON.stringify(s)):null;
+ const list=c=>[...cache].filter(([p])=>p.startsWith(c+'/')).map(([p,d])=>({id:p.slice(c.length+1),...d}));
+ S.events=list('cal');S.claims=list('claims');S.ledger=list('ledger');sched()}
+function makeDb(sb){
+ const T=()=>sb.from('familie_docs');
+ const chk=r=>{if(r.error)throw r.error;return r};
+ const docRef=path=>({
+  async set(data){const coll=path.split('/')[0];const old=cache.get(path);cache.set(path,data);apply();
+   try{chk(await T().upsert({path,coll,data,updated_at:new Date().toISOString()}))}catch(e){old?cache.set(path,old):cache.delete(path);apply();throw e}},
+  async update(part){const cur=cache.get(path)||{};return this.set({...cur,...part})},
+  async delete(){const old=cache.get(path);cache.delete(path);apply();
+   try{chk(await T().delete().eq('path',path))}catch(e){if(old)cache.set(path,old);apply();throw e}}});
+ return{doc:docRef,collection:c=>({add:data=>docRef(c+'/'+Date.now().toString(36)+uid()).set(data)})}}
+async function loadAll(){const r=await sb.from('familie_docs').select('path,data');if(r.error)throw r.error;
+ cache.clear();for(const row of r.data)cache.set(row.path,row.data);S.loaded=true;S.slow=false;apply()}
+let sb=null;
+(async()=>{
+ const cfg=window.FAMILIE_CONFIG||{};
+ if(!window.supabase||!cfg.url||!cfg.key||cfg.url.includes('LIM-INN')){S.nodb=true;return render()}
+ const timer=setTimeout(()=>{if(!S.loaded){S.slow=true;render()}},10000);
+ sb=supabase.createClient(cfg.url,cfg.key);db=makeDb(sb);
+ sb.channel('familie-live').on('postgres_changes',{event:'*',schema:'public',table:'familie_docs'},p=>{
+  if(p.eventType==='DELETE'){if(p.old?.path)cache.delete(p.old.path)}else if(p.new?.path)cache.set(p.new.path,p.new.data);apply()}).subscribe();
+ const refresh=()=>loadAll().then(()=>clearTimeout(timer)).catch(e=>console.error(e));
+ await refresh();
+ setInterval(refresh,30000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden){TODAY=iso(new Date());refresh()}});
+})();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+render();
+}
+</script>
+</body>
+</html>
