@@ -1,5 +1,5 @@
 // Enkel service worker: henter alltid nyeste versjon, viser lagret side hvis du er uten nett
-const C = 'familien-v1';
+const C = 'waleplan-v2';
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', e => {
