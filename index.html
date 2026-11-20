@@ -367,6 +367,7 @@ function render(force){
  if(!force&&S.tab==='oppsett'&&S.draft&&isAdmin())return;
  const v=$('#view');
  if(S.nodb){v.innerHTML=`<div class="lockbox"><h1>Databasen er ikke koblet til ennå</h1><p class="note">Lim inn Supabase-adressen og nøkkelen i filen config.js, og last opp på nytt.</p></div>`;return}
+ if(!S.loaded&&S.err){const host=(window.FAMILIE_CONFIG?.url||'').replace(/^https?:\/\//,'');v.innerHTML=`<div class="lockbox" style="text-align:left"><h1>Får ikke hentet data</h1><p class="note">Send et skjermbilde av denne boksen til Claude.</p><div class="card" style="margin-top:16px;font-size:14px"><p style="margin:0 0 8px"><b>Adresse:</b> ${esc(host||'(tom)')}</p><p style="margin:0 0 8px"><b>Nøkkel starter med:</b> ${esc((window.FAMILIE_CONFIG?.key||'').slice(0,15))}…</p><p style="margin:0"><b>Feil:</b> ${esc(S.err)}</p></div><button class="btn pri" onclick="location.reload()">Prøv igjen</button></div>`;return}
  if(!S.loaded){v.innerHTML=empty(S.slow?'Får ikke kontakt med kalenderen ennå. Sjekk nettet – den prøver igjen av seg selv.':'Laster kalenderen …');return}
  if(!S.setup){if(S.tab!=='oppsett'||!isAdmin()){S.tab='oppsett';}
   if(!isAdmin()){v.innerHTML=vLock();return}
@@ -488,10 +489,10 @@ let sb=null;
  const cfg=window.FAMILIE_CONFIG||{};
  if(!window.supabase||!cfg.url||!cfg.key||cfg.url.includes('LIM-INN')){S.nodb=true;return render()}
  const timer=setTimeout(()=>{if(!S.loaded){S.slow=true;render()}},10000);
- sb=supabase.createClient(cfg.url,cfg.key);db=makeDb(sb);
+ try{sb=supabase.createClient(cfg.url.trim(),cfg.key.trim());}catch(e){S.err='Ugyldig adresse eller nøkkel: '+(e.message||e);clearTimeout(timer);return render()}db=makeDb(sb);
  sb.channel('familie-live').on('postgres_changes',{event:'*',schema:'public',table:'familie_docs'},p=>{
   if(p.eventType==='DELETE'){if(p.old?.path)cache.delete(p.old.path)}else if(p.new?.path)cache.set(p.new.path,p.new.data);apply()}).subscribe();
- const refresh=()=>loadAll().then(()=>clearTimeout(timer)).catch(e=>console.error(e));
+ const refresh=()=>loadAll().then(()=>{S.err=null;clearTimeout(timer)}).catch(e=>{console.error(e);S.err=[e?.code,e?.message||String(e),e?.hint,e?.details].filter(Boolean).join(' · ');render()});
  await refresh();
  setInterval(refresh,30000);
  document.addEventListener('visibilitychange',()=>{if(!document.hidden){TODAY=iso(new Date());refresh()}});
