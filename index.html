@@ -43,6 +43,7 @@ h2{font-size:15px;color:var(--mute);font-weight:550;margin-bottom:12px}
 .logo i{width:12px;height:12px;border-radius:4px;background:var(--bg);display:block;box-shadow:inset 0 3px 0 var(--acc)}
 .tabs{display:flex;gap:4px;margin-left:auto;background:var(--soft);padding:4px;border-radius:14px}
 .tabs button{padding:8px 16px;border-radius:10px;font-weight:550;font-size:15px;color:var(--mute);min-height:40px}
+.tabs button{position:relative}.tabs .bdg{position:absolute;top:2px;right:4px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;line-height:1}
 .tabs button.on{background:var(--bg);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .mechip{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 4px;border-radius:99px;border:1px solid var(--line);font-weight:550;min-height:40px;white-space:nowrap}
 .lock{font-size:12px;color:var(--acc);font-weight:600}
@@ -255,8 +256,11 @@ const kids=()=>mem().filter(m=>m.role==='barn');
 const isAdmin=()=>store.get('fam.admin')==='1';
 const pin=()=>S.setup?.pin||'admin123';
 
+const every=e=>Math.max(1,+e.every||1);
+const weeksBetween=(a,b)=>Math.round((P(b)-P(a))/(7*864e5));
+const repLabel=e=>e.repeat!=='weekly'?'':['','hver uke','annenhver uke','hver 3. uke','hver 4. uke'][every(e)]||('hver '+every(e)+'. uke');
 const occurs=(e,d)=>{if(!e.date)return false;
- if(e.repeat==='weekly')return d>=e.date&&wd(d)===wd(e.date)&&(!e.until||d<=e.until)&&!(e.skip||[]).includes(d);
+ if(e.repeat==='weekly')return d>=e.date&&wd(d)===wd(e.date)&&weeksBetween(e.date,d)%every(e)===0&&(!e.until||d<=e.until)&&!(e.skip||[]).includes(d);
  return e.date===d};
 const involves=(e,ids)=>ids.some(i=>(e.who||[]).includes(i)||e.by===i);
 const on=(d,ids)=>S.events.filter(e=>occurs(e,d)&&(!ids||involves(e,ids))).sort((a,b)=>(a.start||'00').localeCompare(b.start||'00'));
@@ -271,7 +275,7 @@ function evRow(e,d,c){
  const by=M(e.by),who=(e.who||[]).map(M).filter(Boolean);
  return `<button class="ev ${c?'c':''} ${e.type==='henting'?'pick':''}" style="--c:${esc(colorOf(e))}" data-ev="${esc(e.id)}" data-d="${d}">
  <span class="t ${e.start?'':'all'}">${e.start?esc(e.start):'Hele dagen'}${e.end&&!c?`<small>til ${esc(e.end)}</small>`:''}</span>
- <span><span class="ti">${esc(e.title)}</span><span class="meta">${who.map(chip).join('')}${by?`<span class="by">${e.type==='henting'?'Henter':'Ansvarlig'}: <b>${esc(by.name)}</b></span>`:''}${e.repeat==='weekly'?'<span class="rep">· hver uke</span>':''}</span></span></button>`}
+ <span><span class="ti">${esc(e.title)}</span><span class="meta">${who.map(chip).join('')}${by?`<span class="by">${e.type==='henting'?'Henter':'Ansvarlig'}: <b>${esc(by.name)}</b></span>`:''}${e.repeat==='weekly'?`<span class="rep">· ${repLabel(e)}</span>`:''}</span></span></button>`}
 
 /* ---------- Poeng ---------- */
 const bal=k=>S.ledger.filter(l=>l.kid===k.id).reduce((s,l)=>s+(+l.points||0),0);
@@ -351,6 +355,7 @@ function vSet(){
  <section class="card"><h2>Belønninger (koster poeng)</h2>${d.rewards.map((r,i)=>`<div class="srow r"><input data-k="rewards.${i}.title" value="${esc(r.title)}" aria-label="Belønning"><input type="number" inputmode="numeric" data-k="rewards.${i}.cost" value="${+r.cost||0}" aria-label="Pris i poeng"><button class="x" data-rm="rewards.${i}" aria-label="Fjern">×</button></div>`).join('')}
  <button class="btn sm" data-addrow="rewards" style="margin-top:10px">+ Legg til belønning</button></section>
  <section class="card"><h2>Voksen-kode</h2><input data-k="pin" value="${esc(d.pin||'admin123')}" aria-label="Voksen-kode"><p class="note">Koden er en enkel lås for barna, ikke et sikkert passord.</p></section>
+ <section class="card"><h2>Varsel på app-ikonet</h2><p style="margin:0 0 12px">Viser et rødt tall på Wåleplan-ikonet når noe venter på godkjenning.</p><button class="btn sm" data-notif>${typeof Notification!=='undefined'&&Notification.permission==='granted'?'Slått på ✓':'Slå på'}</button><p class="note">På iPhone må appen være lagt på Hjem-skjermen først.</p></section>
  <section class="card"><h2>Denne enheten</h2><p style="margin:0 0 12px">Appen tilhører <b>${esc(me()?.name||'ingen')}</b>.</p><button class="btn sm" data-pickme>Bytt person på denne enheten</button></section>
  <div class="savebar"><button class="btn" data-reset>Angre endringer</button><button class="btn pri" data-save>Lagre oppsett</button></div>`}
 
@@ -358,8 +363,15 @@ function pickPrompt(){return `<div class="lockbox"><h1>Hvem sin app er dette?</h
 
 /* ---------- Tegning ---------- */
 let q=0;const sched=()=>{if(!q){q=1;requestAnimationFrame(()=>{q=0;render()})}};
+function waiting(){return isAdmin()?S.claims.length:0}
+let lastBadge=-1;
+function badge(){const n=waiting();if(n===lastBadge)return;lastBadge=n;
+ try{if(n&&navigator.setAppBadge)navigator.setAppBadge(n).catch(()=>{});else if(navigator.clearAppBadge)navigator.clearAppBadge().catch(()=>{})}catch(e){}
+ document.title=(n?'('+n+') ':'')+'Wåleplan'}
 function chrome(){
- document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));
+ document.querySelectorAll('#tabs button').forEach(b=>{b.classList.toggle('on',b.dataset.tab===S.tab);
+  if(b.dataset.tab==='oppdrag'){const n=waiting();b.innerHTML='Oppdrag'+(n?`<span class="bdg">${n>9?'9+':n}</span>`:'')}});
+ badge();
  const m=me(),c=$('#mechip');
  if(m){c.hidden=false;c.innerHTML=`${av(m)}${esc(m.name)}${isAdmin()?' <span class="lock">voksen</span>':''}`}else c.hidden=true}
 function render(force){
@@ -387,30 +399,51 @@ function askPin(then){open(`<h2>Voksen-kode</h2><form id="pf"><input type="passw
 function pickMe(){open(`<h2>Hvem sin app er dette?</h2>${pickPrompt().replace(/<h1>.*?<\/h1><p class="note">.*?<\/p>/,'')}`)}
 
 function editor(e,d){
- const isNew=!e;e=e||{date:d||S.cur,start:'',end:'',type:'aktivitet',who:me()?[me().id]:[],by:'',repeat:'none',until:'',note:'',title:''};
+ const isNew=!e,series=!isNew&&e.repeat==='weekly';
+ e=e||{date:d||S.cur,start:'',end:'',type:'aktivitet',who:me()?[me().id]:[],by:'',repeat:'none',every:1,until:'',note:'',title:''};
+ const showDate=series&&d?d:e.date,curRep=e.repeat==='weekly'?String(every(e)):'0';
  open(`<h2>${isNew?'Ny hendelse':'Endre hendelse'}</h2><form id="ef">
  <label>Hva skjer?<input name="title" required value="${esc(e.title)}" placeholder="F.eks. Fotballtrening"></label>
  <fieldset><legend>Type</legend><div class="pills">${Object.entries(TYPES).map(([k,v])=>`<label class="pill"><input type="radio" name="type" value="${k}" ${e.type===k?'checked':''}><span>${v}</span></label>`).join('')}</div></fieldset>
- <div class="g3"><label>Dato<input type="date" name="date" value="${esc(e.date)}" required></label><label>Fra<input type="time" name="start" value="${esc(e.start)}"></label><label>Til<input type="time" name="end" value="${esc(e.end)}"></label></div>
+ <div class="g3"><label>Dato<input type="date" name="date" value="${esc(showDate)}" required></label><label>Fra<input type="time" name="start" value="${esc(e.start)}"></label><label>Til<input type="time" name="end" value="${esc(e.end)}"></label></div>
  <fieldset><legend>Gjelder</legend><div class="pills">${mem().map(m=>`<label class="pill" style="--c:${esc(m.color)}"><input type="checkbox" name="who" value="${esc(m.id)}" ${(e.who||[]).includes(m.id)?'checked':''}><span>${esc(m.name)}</span></label>`).join('')}</div></fieldset>
  <label>Hvem henter / er ansvarlig?<select name="by"><option value="">Ingen</option>${mem().filter(m=>m.role!=='barn').concat(kids()).map(m=>`<option value="${esc(m.id)}" ${e.by===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
- <div class="g2"><label>Gjentas<select name="repeat"><option value="none">Nei</option><option value="weekly" ${e.repeat==='weekly'?'selected':''}>Hver uke</option></select></label><label>Til og med (valgfritt)<input type="date" name="until" value="${esc(e.until||'')}"></label></div>
+ <div class="g2"><label>Gjentas<select name="rep">${[['0','Nei'],['1','Hver uke'],['2','Annenhver uke'],['3','Hver 3. uke'],['4','Hver 4. uke']].map(([v,t])=>`<option value="${v}" ${curRep===v?'selected':''}>${t}</option>`).join('')}</select></label><label>Til og med (valgfritt)<input type="date" name="until" value="${esc(e.until||'')}"></label></div>
  <label>Notat<textarea name="note" rows="2" placeholder="F.eks. ta med gymtøy">${esc(e.note||'')}</textarea></label>
- ${!isNew&&e.repeat==='weekly'?'<p class="note">Endringer gjelder hele serien.</p>':''}
  <div class="acts">${isNew?'':'<button type="button" class="btn danger" id="del">Slett</button>'}<span></span><button type="button" class="btn" data-close>Avbryt</button><button class="btn pri">Lagre</button></div></form>`,()=>{
-  $('#ef').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),rep=f.get('repeat');
-   const data={title:f.get('title').trim(),type:f.get('type')||'annet',date:f.get('date'),start:f.get('start')||'',end:f.get('end')||'',who:f.getAll('who'),by:f.get('by')||'',repeat:rep,until:rep==='weekly'?(f.get('until')||''):'',note:f.get('note').trim(),skip:e.skip||[]};
+  $('#ef').onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),n=+f.get('rep')||0;
+   const data={title:f.get('title').trim(),type:f.get('type')||'annet',date:f.get('date'),start:f.get('start')||'',end:f.get('end')||'',who:f.getAll('who'),by:f.get('by')||'',repeat:n?'weekly':'none',every:n||1,until:n?(f.get('until')||''):'',note:f.get('note').trim(),skip:[]};
+   if(series&&d)return askScope(e,d,data);
+   if(!isNew&&data.repeat==='weekly')data.skip=e.skip||[];
    const b=ev.target.querySelector('.btn.pri');b.disabled=true;
    try{if(isNew)await db.collection('cal').add(data);else await db.doc('cal/'+e.id).set(data);close();toast('Lagret')}catch(err){b.disabled=false;fail(err)}};
   if(!isNew)$('#del').onclick=()=>delAsk(e,d)})}
+function askScope(e,d,data){
+ open(`<h2>Gjelder endringen bare denne dagen?</h2><p class="note" style="margin-bottom:16px">«${esc(e.title)}» gjentas ${repLabel(e)}. Du endrer ${esc(fmt(d,{weekday:'long',day:'numeric',month:'long'}))}.</p>
+ <div class="who"><button id="s1">Ja, kun denne dagen<small>Resten av serien er som før</small></button><button id="s2">Nei, denne og alle fremtidige<small>Tidligere dager endres ikke</small></button></div>
+ <div class="acts"><span></span><button class="btn" data-close>Avbryt</button></div>`,()=>{
+  $('#s1').onclick=async()=>{try{
+    await db.doc('cal/'+e.id).update({skip:[...new Set([...(e.skip||[]),d])]});
+    await db.collection('cal').add({...data,repeat:'none',every:1,until:'',skip:[],from:e.id});
+    close();toast('Endret kun denne dagen')}catch(err){fail(err)}};
+  $('#s2').onclick=async()=>{try{
+    if(d<=e.date){await db.doc('cal/'+e.id).set({...data,skip:(e.skip||[]).filter(x=>x>=data.date)})}
+    else{await db.doc('cal/'+e.id).update({until:add(d,-1)});
+     await db.collection('cal').add({...data,skip:(e.skip||[]).filter(x=>x>=data.date),from:e.id})}
+    close();toast('Endret fra og med denne dagen')}catch(err){fail(err)}}})}
 function delAsk(e,d){
- const weekly=e.repeat==='weekly';
- open(`<h2>Slette «${esc(e.title)}»?</h2>${weekly?`<p class="note" style="margin-bottom:16px">Dette skjer hver uke.</p>`:''}<div class="acts"><button class="btn" data-close>Avbryt</button><span></span>${weekly?`<button class="btn" id="d1">Bare ${esc(fmt(d,{day:'numeric',month:'short'}))}</button><button class="btn danger" id="dall">Hele serien</button>`:'<button class="btn danger" id="dall">Slett</button>'}</div>`,()=>{
-  $('#dall').onclick=async()=>{try{await db.doc('cal/'+e.id).delete();close();toast('Slettet')}catch(err){fail(err)}};
-  if(weekly)$('#d1').onclick=async()=>{try{await db.doc('cal/'+e.id).update({skip:[...(e.skip||[]),d]});close();toast('Fjernet denne dagen')}catch(err){fail(err)}}})}
+ const weekly=e.repeat==='weekly',dd=esc(fmt(d,{day:'numeric',month:'short'}));
+ if(!weekly)return open(`<h2>Slette «${esc(e.title)}»?</h2><div class="acts"><button class="btn" data-close>Avbryt</button><span></span><button class="btn danger" id="dall">Slett</button></div>`,()=>{
+  $('#dall').onclick=async()=>{try{await db.doc('cal/'+e.id).delete();close();toast('Slettet')}catch(err){fail(err)}}});
+ open(`<h2>Slette «${esc(e.title)}»?</h2><p class="note" style="margin-bottom:16px">Dette gjentas ${repLabel(e)}.</p>
+ <div class="who"><button id="d1">Kun ${dd}<small>Resten av serien er som før</small></button><button id="d2">${dd} og alle fremtidige<small>Tidligere dager blir stående</small></button><button id="dall" style="color:var(--bad)">Hele serien<small>Alle dager, også tidligere</small></button></div>
+ <div class="acts"><span></span><button class="btn" data-close>Avbryt</button></div>`,()=>{
+  $('#d1').onclick=async()=>{try{await db.doc('cal/'+e.id).update({skip:[...new Set([...(e.skip||[]),d])]});close();toast('Fjernet denne dagen')}catch(err){fail(err)}};
+  $('#d2').onclick=async()=>{try{if(d<=e.date)await db.doc('cal/'+e.id).delete();else await db.doc('cal/'+e.id).update({until:add(d,-1)});close();toast('Slettet fra og med '+fmt(d,{day:'numeric',month:'short'}))}catch(err){fail(err)}};
+  $('#dall').onclick=async()=>{try{await db.doc('cal/'+e.id).delete();close();toast('Hele serien er slettet')}catch(err){fail(err)}}})}
 function detail(e,d){const by=M(e.by),who=(e.who||[]).map(M).filter(Boolean);
  open(`<h2>${esc(e.title)}</h2><p style="margin:0 0 8px"><b>${cap(fmt(d,{weekday:'long',day:'numeric',month:'long'}))}</b>${e.start?' · '+esc(e.start):''}${e.end?'–'+esc(e.end):''}</p>
- <div class="meta" style="margin-bottom:12px">${who.map(chip).join('')}<span class="by">${TYPES[e.type]||''}${e.repeat==='weekly'?' · hver uke':''}</span></div>
+ <div class="meta" style="margin-bottom:12px">${who.map(chip).join('')}<span class="by">${TYPES[e.type]||''}${e.repeat==='weekly'?' · '+repLabel(e):''}</span></div>
  ${by?`<p style="margin:0 0 8px">${e.type==='henting'?'Henter':'Ansvarlig'}: <b>${esc(by.name)}</b></p>`:''}${e.note?`<p class="note">${esc(e.note)}</p>`:''}
  <div class="acts"><span></span><button class="btn pri" data-close>Lukk</button></div>`)}
 function bonus(kid){const k=M(kid);
@@ -449,6 +482,7 @@ document.addEventListener('click',ev=>{
  if(D.bonus)return bonus(D.bonus);
  if(D.me){if(me()&&!isAdmin())return toast('Bare en voksen kan bytte person');store.set('fam.me',D.me);close();S.tab='meg';store.set('fam.tab','meg');return render(1)}
  if(b.id==='mechip'||'pickme' in D){return isAdmin()?pickMe():askPin(pickMe)}
+ if('notif' in D){if(typeof Notification==='undefined')return toast('Legg appen på Hjem-skjermen først');Notification.requestPermission().then(p=>{lastBadge=-1;badge();toast(p==='granted'?'Slått på':'Ikke tillatt. Sjekk innstillingene på mobilen.');render(1)}).catch(()=>toast('Ikke støttet på denne mobilen'));return}
  if('logout' in D){store.set('fam.admin',null);S.draft=null;toast('Voksen-modus er låst');return render(1)}
  const d=S.draft;if(!d)return;
  if(D.addrow){const n=uid();d[D.addrow].push(D.addrow==='members'?{id:'m'+n,name:'',role:'barn',color:COLORS[d.members.length%COLORS.length]}:D.addrow==='tasks'?{id:'t'+n,title:'',points:10,days:[]}:{id:'r'+n,title:'',cost:100});return render(1)}
